@@ -18,92 +18,93 @@ var http = require('http');
 var url = require('url');
 var net = require('net');
 
-var clientConnections = 0;
+module.exports = function(serverFactory, options) {
 
-var server = http.createServer(function (req, res) {
-	console.log(req.connection.remoteAddress + " " +
-	    req.method + " " + req.url);
-	u = url.parse(req.url);
+    var clientConnections = 0;
 
-	if (typeof u.protocol === 'undefined') {
-		res.writeHead(500, {"Content-Type": "text/plain"});
-		res.end("500 Missing protocol");
-		return;
-	}
+    var server = serverFactory(options, function (req, res) {
+        console.log(req.connection.remoteAddress + " " +
+            req.method + " " + req.url);
+        u = url.parse(req.url);
 
-	if (u.protocol != 'http:') {
-		res.writeHead(500, {"Content-Type": "text/plain"});
-		res.end("500 Unsupported protocol");
-		return;
-	}
+        if (typeof u.protocol === 'undefined') {
+            res.writeHead(500, {"Content-Type": "text/plain"});
+            res.end("500 Missing protocol");
+            return;
+        }
 
-	options = {
-		method: req.method,
-		host: u.hostname,
-		path: u.pathname,
-		headers: req.headers
-	};
+        if (u.protocol != 'http:') {
+            res.writeHead(500, {"Content-Type": "text/plain"});
+            res.end("500 Unsupported protocol");
+            return;
+        }
 
-	if (typeof u.port !== 'undefined')
-		options.port = u.port;
-	if (typeof u.search !== 'undefined')
-		options.path += u.search;
-	if (typeof u.hash !== 'undefined')
-		options.path += u.hash;
+        options = {
+            method: req.method,
+            host: u.hostname,
+            path: u.pathname,
+            headers: req.headers
+        };
 
-	delete(options.headers['proxy-connection']);
-	options.headers['Connection'] = 'keep-alive';
+        if (typeof u.port !== 'undefined')
+            options.port = u.port;
+        if (typeof u.search !== 'undefined')
+            options.path += u.search;
+        if (typeof u.hash !== 'undefined')
+            options.path += u.hash;
 
-	function proxyError (e) {
-		res.writeHead(500, {"Content-Type": "text/plain"});
-		res.end("500 " + e.message + "\n");
-	}
+        delete(options.headers['proxy-connection']);
+        options.headers['Connection'] = 'keep-alive';
 
-	preq = http.request(options, function (pres) {
-		pres.headers['connection'] = (clientConnections > 8) ?
-		    'close' : 'Keep-Alive';
+        function proxyError (e) {
+            res.writeHead(500, {"Content-Type": "text/plain"});
+            res.end("500 " + e.message + "\n");
+        }
 
-		res.writeHead(pres.statusCode, pres.headers);
-		pres.pipe(res);
-	});
-	preq.once('error', proxyError);
-	req.pipe(preq);
-});
+        preq = http.request(options, function (pres) {
+            pres.headers['connection'] = (clientConnections > 8) ?
+                'close' : 'Keep-Alive';
 
-server.on('upgrade', function (req, c, head) {
-	console.log(req.connection.remoteAddress + " " +
-	    req.method + " " + req.url);
+            res.writeHead(pres.statusCode, pres.headers);
+            pres.pipe(res);
+        });
+        preq.once('error', proxyError);
+        req.pipe(preq);
+    });
 
-	if (req.method != 'CONNECT') {
-		c.end();
-	}
+    server.on('upgrade', function (req, c, head) {
+        console.log(req.connection.remoteAddress + " " +
+            req.method + " " + req.url);
 
-	host_port = req.url.split(':', 2);
+        if (req.method != 'CONNECT') {
+            c.end();
+        }
 
-	s = new net.Socket();
-	s.setNoDelay();
+        host_port = req.url.split(':', 2);
 
-	s.on('error', sError = function (e) {
-		console.log('error: ' + e);
-		c.end();
-	});
+        s = new net.Socket();
+        s.setNoDelay();
 
-	s.connect(host_port[1], host_port[0], function() {
-		s = this;
-		c.removeListener('error', sError);
-		c.write("HTTP/" + req.httpVersion +
-		    " 200 Connection established\r\n\r\n");
-		c.pipe(s);
-		s.pipe(c);
-	});
-});
+        s.on('error', sError = function (e) {
+            console.log('error: ' + e);
+            c.end();
+        });
 
-server.on('connection', function (c) {
-	clientConnections++;
+        s.connect(host_port[1], host_port[0], function() {
+            s = this;
+            c.removeListener('error', sError);
+            c.write("HTTP/" + req.httpVersion +
+                " 200 Connection established\r\n\r\n");
+            c.pipe(s);
+            s.pipe(c);
+        });
+    });
 
-	c.on('close', function() {
-		clientConnections--;
-	});
-});
+    server.on('connection', function (c) {
+        clientConnections++;
 
-module.exports = server;
+        c.on('close', function() {
+            clientConnections--;
+        });
+    });
+};
