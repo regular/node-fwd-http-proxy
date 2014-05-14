@@ -106,4 +106,4 @@ server.on('connection', function (c) {
 	});
 });
 
-server.listen(8080);
+module.exports = server;
