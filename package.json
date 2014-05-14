@@ -1,0 +1,19 @@
+{
+  "name": "node-fwd-http-proxy",
+  "version": "0.0.0",
+  "description": "This is a forward proxy for http traffic. It does absolutely nothing except forward requests, there are no access controls or transforms or anything.",
+  "main": "proxy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/regular/node-fwd-http-proxy.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/regular/node-fwd-http-proxy/issues"
+  },
+  "homepage": "https://github.com/regular/node-fwd-http-proxy"
+}
